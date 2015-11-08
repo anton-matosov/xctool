@@ -342,12 +342,25 @@ static NSString * const kEnvVarPassThroughPrefix = @"XCTOOL_TEST_ENV_";
 
   XCTestConfiguration *configuration = [[XCTestConfigurationClass alloc] init];
   [configuration setProductModuleName:_buildSettings[Xcode_PRODUCT_MODULE_NAME]];
+  [configuration setTargetApplicationBundleID:_buildSettings[UITestingTargetApplicationBundleID]];
+  [configuration setTargetApplicationPath:_buildSettings[UITestingTargetApplicationPath]];
   [configuration setTestBundleURL:[NSURL fileURLWithPath:[_simulatorInfo productBundlePath]]];
   [configuration setTestsToSkip:[NSSet setWithArray:testCasesToSkip]];
   [configuration setReportResultsToIDE:NO];
 
+  NSString *XCTestConfigurationExtension = @"xctestconfiguration";
   NSString *XCTestConfigurationFilename = [NSString stringWithFormat:@"%@-%@", _buildSettings[Xcode_PRODUCT_NAME], [configuration.sessionIdentifier UUIDString]];
-  NSString *XCTestConfigurationFilePath = [MakeTempFileWithPrefix(XCTestConfigurationFilename) stringByAppendingPathExtension:@"xctestconfiguration"];
+  NSString *XCTestConfigurationDirectory = MakeTempFileWithPrefix(XCTestConfigurationFilename);
+  if (TestableSettingsIndicatesUITesting(_simulatorInfo.buildSettings)) {
+    XCTestConfigurationDirectory = [_simulatorInfo productBundlePath];
+    NSArray *filesInTestBundle = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:XCTestConfigurationDirectory error:nil];
+    NSArray *oldCfgFiles = [filesInTestBundle filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"self ENDSWITH '.%@'", XCTestConfigurationExtension]];
+    for (NSString *oldCfg in oldCfgFiles) {
+      [[NSFileManager defaultManager] removeItemAtPath:oldCfg error:nil];
+    }
+  }
+  NSString *XCTestConfigurationFilePath = [[XCTestConfigurationDirectory stringByAppendingPathComponent:XCTestConfigurationFilename] stringByAppendingPathExtension:XCTestConfigurationExtension];
+  NSLog(@"Putting cfg file at: %@", XCTestConfigurationFilePath);
   if ([[NSFileManager defaultManager] fileExistsAtPath:XCTestConfigurationFilePath]) {
     [[NSFileManager defaultManager] removeItemAtPath:XCTestConfigurationFilePath error:nil];
   }
